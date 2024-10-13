@@ -1,0 +1,8 @@
+volumes/db/data
+volumes/storage
+test.http
+docker-compose.override.yml
+
+# Used only for local development
+!.env
+.env.*

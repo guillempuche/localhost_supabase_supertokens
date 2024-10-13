@@ -1,0 +1,30 @@
+{
+	"compilerOptions": {
+		"jsx": "react",
+		"jsxFactory": "React.createElement",
+		"jsxFragmentFactory": "React.Fragment",
+		// Type checking for combined browser and Deno environments
+		"lib": ["deno.ns", "dom", "dom.iterable"]
+	},
+	"imports": {
+		"@biomejs/biome": "npm:@biomejs/biome@^1.9.3",
+		"@std/dotenv": "jsr:@std/dotenv@0.225.2",
+		"@std/fs": "jsr:@std/fs@1.0.4",
+		"@supabase/supabase-js": "jsr:@supabase/supabase-js@2.45.4",
+		"cookie": "npm:cookie@1.0.1",
+		"cors": "jsr:@tajpouria/cors@1.2.1",
+		"hono": "jsr:@hono/hono@4.6.4",
+		"jose": "https://deno.land/x/jose@v5.9.4/index.ts",
+		"oak": "jsr:@oak/oak@17.1.0",
+		"postgres": "https://deno.land/x/postgres@v0.19.3/mod.ts",
+		"supertokens-node": "npm:supertokens-node@20.1.5"
+	},
+	"nodeModulesDir": "auto",
+	"tasks": {
+		"server:start": "deno run --allow-net --allow-read --allow-env --watch server/main.ts",
+		"web:dev": "vite",
+		"lint": "biome check --write --no-errors-on-unmatched"
+	},
+	"workspace": ["./domain", "./web"],
+	"exclude": ["web"]
+}
