@@ -1,134 +1,172 @@
-import type { Context } from "hono";
-import { Pool } from "postgres";
-import Session from "supertokens-node/recipe/session";
+import { green } from '@std/fmt/colors'
+import type { Context } from 'hono'
+import { Pool } from 'postgres'
+import Session from 'supertokens-node/recipe/session'
 
-const SUPABASE_PG_USER = Deno.env.get("SUPABASE_PG_USER") || "";
-const SUPABASE_PG_PASSWORD = Deno.env.get("SUPABASE_PG_PASSWORD") || "";
-const SUPABASE_PG_NAME = Deno.env.get("SUPABASE_PG_NAME") || "";
-const SUPABASE_PG_HOST = Deno.env.get("SUPABASE_PG_HOST") || "";
-const SUPABASE_PG_PORT = Deno.env.get("SUPABASE_PG_PORT") || "";
+let connectionPool: Pool
 
-const POOL_CONNECTIONS = 10;
-const connectionPool = new Pool(
-	{
-		user: SUPABASE_PG_USER,
-		password: SUPABASE_PG_PASSWORD,
-		database: SUPABASE_PG_NAME,
-		hostname: SUPABASE_PG_HOST,
-		port: Number(SUPABASE_PG_PORT),
-	},
-	POOL_CONNECTIONS,
-);
+export async function initDatabase() {
+	const SUPABASE_PG_USER = Deno.env.get('SUPABASE_PG_USER') || ''
+	const SUPABASE_PG_PASSWORD = Deno.env.get('SUPABASE_PG_PASSWORD') || ''
+	const SUPABASE_PG_NAME = Deno.env.get('SUPABASE_PG_NAME') || ''
+	const SUPABASE_PG_HOST = Deno.env.get('SUPABASE_PG_HOST') || ''
+	const SUPABASE_PG_PORT = Deno.env.get('SUPABASE_PG_PORT') || ''
+
+	const POOL_CONNECTIONS = 10
+
+	try {
+		connectionPool = new Pool(
+			{
+				user: SUPABASE_PG_USER,
+				password: SUPABASE_PG_PASSWORD,
+				database: SUPABASE_PG_NAME,
+				hostname: SUPABASE_PG_HOST,
+				port: Number(SUPABASE_PG_PORT),
+			},
+			POOL_CONNECTIONS,
+		)
+		// Test the connection
+		const client = await connectionPool.connect()
+		await client.queryObject`SELECT 1`
+		client.release()
+
+		console.log(green('Database connection pool created successfully.'))
+	} catch (error) {
+		console.error('Error creating database connection pool:', error)
+		throw error
+	}
+}
 
 // ===============================
 // User utils
 // ===============
 
 export const getUserProfile = async (c: Context) => {
-	const session = c.req.session;
+	const session = c.req.session
 	if (!session) {
-		return c.text("Unauthorized", 401);
+		return c.text('Unauthorized', 401)
 	}
 
-	const userId = session.getUserId();
+	const userId = session.getUserId()
 	// Fetch and return user profile using userId
-};
+}
 
 // ===============================
 // Explorer handlers
 // ===============
 
 export async function getAllExplorers(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const result = await client.queryObject("SELECT * FROM explorers");
-		return c.json(result.rows);
+		const result = await client.queryObject('SELECT * FROM explorers')
+		return c.json(result.rows)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
 export async function getExplorer(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const id = c.req.param("id");
+		const id = c.req.param('id')
 		const result = await client.queryObject(
 			`SELECT * FROM explorers WHERE id = ${id}`,
-		);
+		)
 		if (result.rows.length === 0) {
-			return c.json({ error: "Explorer not found" }, 404);
+			return c.json({ error: 'Explorer not found' }, 404)
 		}
-		return c.json(result.rows[0]);
+		return c.json(result.rows[0] as Record<string, unknown>)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
 export async function createExplorer(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const { username, email } = await c.req.json();
-		const id = crypto.randomUUID();
-		const created_at = new Date().toISOString();
+		const { username, email } = await c.req.json()
+		const id = crypto.randomUUID()
+		const created_at = new Date().toISOString()
 		await client.queryObject(
 			`INSERT INTO explorers (id, username, email, created_at) VALUES (${id}, ${username}, ${email}, ${created_at})`,
-		);
-		return c.json({ id, username, email, created_at }, 201);
+		)
+		return c.json({ id, username, email, created_at }, 201)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
 export async function updateExplorer(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const id = c.req.param("id");
-		const updates = await c.req.json();
-		const fields = [];
-		const values = [];
-		let idx = 1;
+		const id = c.req.param('id')
+		const updates = await c.req.json()
+		const fields = []
+		const values = []
+		let idx = 1
 
 		for (const [key, value] of Object.entries(updates)) {
-			fields.push(`${key} = $${idx++}`);
-			values.push(value);
+			fields.push(`${key} = $${idx}`)
+			values.push(value)
+			idx++
 		}
 
 		if (fields.length === 0) {
-			return c.json({ error: "No fields to update" }, 400);
+			return c.json({ error: 'No fields to update' }, 400)
 		}
 
-		values.push(id);
-		const query = `UPDATE explorers SET ${fields.join(", ")} WHERE id = $${idx}`;
-		await client.queryObject(query, ...values);
-		return c.json({ message: "Explorer updated" });
+		values.push(id)
+		const query = `UPDATE explorers SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`
+		const result = await client.queryObject(query, values)
+
+		if (result.rowCount === 0) {
+			return c.json({ error: 'Explorer not found' }, 404)
+		}
+
+		return c.json(result.rows[0] as Record<string, unknown>)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
 export async function deleteExplorer(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const id = c.req.param("id");
-		await client.queryObject(`DELETE FROM explorers WHERE id = ${id}`);
-		return c.text("Deleted", 200);
+		const id = c.req.param('id')
+		await client.queryObject(`DELETE FROM explorers WHERE id = ${id}`)
+		return c.text('Deleted', 200)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
@@ -137,96 +175,117 @@ export async function deleteExplorer(c: Context) {
 // ===============
 
 export async function getAllTopics(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const result = await client.queryObject("SELECT * FROM topics");
-		return c.json(result.rows);
+		const result = await client.queryObject('SELECT * FROM topics')
+		return c.json(result.rows)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
 export async function getTopic(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const id = c.req.param("id");
+		const id = c.req.param('id')
 		const result = await client.queryObject(
 			`SELECT * FROM topics WHERE id = ${id}`,
-		);
+		)
 		if (result.rows.length === 0) {
-			return c.json({ error: "Topic not found" }, 404);
+			return c.json({ error: 'Topic not found' }, 404)
 		}
-		return c.json(result.rows[0]);
+		return c.json(result.rows[0] as Record<string, unknown>)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
 export async function createTopic(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const { name, description, explorer_id } = await c.req.json();
-		const id = crypto.randomUUID();
-		const created_at = new Date().toISOString();
+		const { name, description, explorer_id } = await c.req.json()
+		const id = crypto.randomUUID()
+		const created_at = new Date().toISOString()
 		await client.queryObject(
 			`INSERT INTO topics (id, name, description, created_at, explorer_id) VALUES (${id}, ${name}, ${description}, ${created_at}, ${explorer_id})`,
-		);
-		return c.json({ id, name, description, created_at, explorer_id }, 201);
+		)
+		return c.json({ id, name, description, created_at, explorer_id }, 201)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
 export async function updateTopic(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const id = c.req.param("id");
-		const updates = await c.req.json();
-		const fields = [];
-		const values = [];
-		let idx = 1;
+		const id = c.req.param('id')
+		const updates = await c.req.json()
+		const fields = []
+		const values = []
+		let idx = 1
 
 		for (const [key, value] of Object.entries(updates)) {
-			fields.push(`${key} = $${idx++}`);
-			values.push(value);
+			fields.push(`${key} = $${idx}`)
+			values.push(value)
+			idx++
 		}
 
 		if (fields.length === 0) {
-			return c.json({ error: "No fields to update" }, 400);
+			return c.json({ error: 'No fields to update' }, 400)
 		}
 
-		values.push(id);
-		const query = `UPDATE topics SET ${fields.join(", ")} WHERE id = $${idx}`;
-		await client.queryObject(query, ...values);
-		return c.json({ message: "Topic updated" });
+		values.push(id)
+		const query = `UPDATE topics SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`
+		const result = await client.queryObject(query, values)
+
+		if (result.rowCount === 0) {
+			return c.json({ error: 'Topic not found' }, 404)
+		}
+
+		return c.json(result.rows[0] as Record<string, unknown>)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
 export async function deleteTopic(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const id = c.req.param("id");
-		await client.queryObject(`DELETE FROM topics WHERE id = ${id}`);
-		return c.text("Deleted", 200);
+		const id = c.req.param('id')
+		await client.queryObject(`DELETE FROM topics WHERE id = ${id}`)
+		return c.text('Deleted', 200)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
@@ -235,96 +294,116 @@ export async function deleteTopic(c: Context) {
 // ===============
 
 export async function getAllDevices(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const result = await client.queryObject("SELECT * FROM devices");
-		return c.json(result.rows);
+		const result = await client.queryObject('SELECT * FROM devices')
+		return c.json(result.rows)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
 export async function getDevice(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const id = c.req.param("id");
+		const id = c.req.param('id')
 		const result = await client.queryObject(
 			`SELECT * FROM devices WHERE id = ${id}`,
-		);
+		)
 		if (result.rows.length === 0) {
-			return c.json({ error: "Device not found" }, 404);
+			return c.json({ error: 'Device not found' }, 404)
 		}
-		return c.json(result.rows[0]);
+		return c.json(result.rows[0] as Record<string, unknown>)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
 export async function createDevice(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const { explorer_id, device_name } = await c.req.json();
-		const id = crypto.randomUUID();
-		const created_at = new Date().toISOString();
+		const { explorer_id, device_name } = await c.req.json()
+		const id = crypto.randomUUID()
+		const created_at = new Date().toISOString()
 		await client.queryObject(
 			`INSERT INTO devices (id, explorer_id, device_name, created_at) VALUES (${id}, ${explorer_id}, ${device_name}, ${created_at})`,
-		);
-		return c.json({ id, explorer_id, device_name, created_at }, 201);
+		)
+		return c.json({ id, explorer_id, device_name, created_at }, 201)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
 export async function updateDevice(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const id = c.req.param("id");
-		const updates = await c.req.json();
-		const fields = [];
-		const values = [];
-		let idx = 1;
+		const id = c.req.param('id')
+		const updates = await c.req.json()
+		const fields = []
+		const values = []
+		const idx = 1
 
 		for (const [key, value] of Object.entries(updates)) {
-			fields.push(`${key} = $${idx++}`);
-			values.push(value);
+			fields.push(`${key} = $${idx}`)
+			values.push(value)
 		}
 
 		if (fields.length === 0) {
-			return c.json({ error: "No fields to update" }, 400);
+			return c.json({ error: 'No fields to update' }, 400)
 		}
 
-		values.push(id);
-		const query = `UPDATE devices SET ${fields.join(", ")} WHERE id = $${idx}`;
-		await client.queryObject(query, ...values);
-		return c.json({ message: "Device updated" });
+		values.push(id)
+		const query = `UPDATE devices SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`
+		const result = await client.queryObject(query, values)
+
+		if (result.rowCount === 0) {
+			return c.json({ error: 'Device not found' }, 404)
+		}
+
+		return c.json(result.rows[0] as Record<string, unknown>)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
 export async function deleteDevice(c: Context) {
-	const client = await connectionPool.connect();
+	const client = await connectionPool.connect()
 	try {
-		const id = c.req.param("id");
-		await client.queryObject(`DELETE FROM devices WHERE id = ${id}`);
-		return c.text("Deleted", 200);
+		const id = c.req.param('id')
+		await client.queryObject(`DELETE FROM devices WHERE id = ${id}`)
+		return c.text('Deleted', 200)
 	} catch (error) {
-		console.error(error);
-		return c.json({ error: error.message }, 500);
+		console.error(error)
+		return c.json(
+			{ error: error instanceof Error ? error.message : 'Unknown error' },
+			500,
+		)
 	} finally {
-		client.release();
+		client.release()
 	}
 }
 
@@ -334,28 +413,28 @@ export async function deleteDevice(c: Context) {
 
 export async function getSessions(c: Context) {
 	try {
-		const session = c.req.session;
+		const session = c.req.session
 		if (!session) {
-			return c.text("Unauthorized", 401);
+			return c.text('Unauthorized', 401)
 		}
 
-		const userId = session.getUserId();
-		const sessionHandles = await Session.getAllSessionHandlesForUser(userId);
+		const userId = session.getUserId()
+		const sessionHandles = await Session.getAllSessionHandlesForUser(userId)
 
 		const sessions = await Promise.all(
-			sessionHandles.map(async (handle) => {
-				const sessionInfo = await Session.getSessionInformation(handle);
+			sessionHandles.map(async handle => {
+				const sessionInfo = await Session.getSessionInformation(handle)
 				return {
 					handle,
-					userId: sessionInfo.userId,
-					expiry: sessionInfo.expiry,
-				};
+					userId: sessionInfo?.userId,
+					expiry: sessionInfo?.expiry,
+				}
 			}),
-		);
+		)
 
-		return c.json(sessions);
+		return c.json(sessions)
 	} catch (error) {
-		console.error("Session error:", error);
-		return c.text("Unauthorized", 401);
+		console.error('Session error:', error)
+		return c.text('Unauthorized', 401)
 	}
 }

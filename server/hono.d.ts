@@ -1,7 +1,7 @@
-import type { SessionContainer } from "supertokens-node/recipe/session";
+import type { SessionContainer } from 'supertokens-node/recipe/session'
 
-declare module "hono" {
+declare module 'hono' {
 	interface HonoRequest {
-		session?: SessionContainer;
+		session?: SessionContainer
 	}
 }
