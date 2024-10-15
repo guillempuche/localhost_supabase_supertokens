@@ -9,7 +9,9 @@
 	"imports": {
 		"@biomejs/biome": "npm:@biomejs/biome@^1.9.3",
 		"@std/dotenv": "jsr:@std/dotenv@0.225.2",
+		"@std/fmt": "jsr:@std/fmt@1.0.2",
 		"@std/fs": "jsr:@std/fs@1.0.4",
+		"@std/path": "jsr:@std/path@1.0.6",
 		"@supabase/supabase-js": "jsr:@supabase/supabase-js@2.45.4",
 		"cookie": "npm:cookie@1.0.1",
 		"cors": "jsr:@tajpouria/cors@1.2.1",
@@ -21,10 +23,11 @@
 	},
 	"nodeModulesDir": "auto",
 	"tasks": {
-		"server:start": "deno run --allow-net --allow-read --allow-env --watch server/main.ts",
-		"web:dev": "vite",
-		"lint": "biome check --write --no-errors-on-unmatched"
+		"docker:down": "deno run --allow-run --allow-read --allow-env services/stop_services.ts",
+		"docker:up": "deno run --allow-run --allow-read --allow-env services/run_services.ts",
+		"lint": "biome check --write --no-errors-on-unmatched",
+		"server:start": "deno run --allow-net --allow-read --allow-env --allow-sys --watch server/main.ts",
+		"web:dev": "cd web && deno task dev"
 	},
-	"workspace": ["./domain", "./web"],
-	"exclude": ["web"]
+	"workspace": ["./domain", "./web"]
 }
